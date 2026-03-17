@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Visualise Environments{% endblock %}
+
+{% block start %}
+
+<style>
+  :root {
+    --grid-gap: 15px;
+    --border-radius: 6px;
+  }
+
+  .env-grid {
+    display: grid;
+    /* This keeps 4 columns like your original, but makes them responsive */
+    grid-template-columns: repeat(auto-fill, minmax(24%, 1fr)); 
+    gap: var(--grid-gap);
+    padding: 10px 0;
+  }
+
+  .env-card {
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    background: #fff;
+    transition: transform 0.2s ease;
+  }
+
+  .env-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+
+  .env-card img {
+    width: 100%;       /* Spans full width of the column */
+    height: auto;       /* This is the magic: it keeps the original proportions! */
+    display: block;
+    object-fit: contain; /* Ensures the whole image is visible */
+  }
+
+  /* Optional: If images are different heights, this keeps the row neat */
+  .env-grid {
+    align-items: start; 
+  }
+</style>
+
+
+<div class="container mt-4 mb-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Generated Environments</h2>
+    <span class="text-muted">Total Experiments: {{ Timestamps|length }}</span>
+  </div>
+  <!-- main accordian -->
+  <div class="accordion shadow-sm" id="timestampAccordion">
+    {% for timestamp in Timestamps %}
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" 
+                data-bs-toggle="collapse" data-bs-target="#ts-{{ timestamp.id }}">
+          <i class="bi bi-calendar3 me-2"></i> 
+          <strong>Batch:</strong> {{ timestamp.timestamp|date:"M d, Y - H:i" }}
+        </button>
+      </h2>
+
+      <div id="ts-{{ timestamp.id }}" class="accordion-collapse collapse" data-bs-parent="#timestampAccordion">
+        <div class="accordion-body bg-light">
+          
+          <!-- difficulty accordian -->
+          <div class="accordion accordion-nested" id="curAccordion-{{ timestamp.id }}">
+            {% for curriculum in timestamp.curriculums.all %}
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" 
+                        data-bs-toggle="collapse" data-bs-target="#cur-{{ curriculum.id }}">
+                  Difficulty: <span class="badge bg-primary ms-2">{{ curriculum.difficulty|title }} </span><span class="badge bg-secondary ms-2"> size: {{ curriculum.object_size|title }}, count : {{ curriculum.object_count|title }}</span>
+                </button>
+              </h2>
+
+              <div id="cur-{{ curriculum.id }}" class="accordion-collapse collapse" data-bs-parent="#curAccordion-{{ timestamp.id }}">
+                <div class="accordion-body bg-white">
+                  
+                  <!-- generation accordian -->
+                  <div class="accordion" id="genAccordion-{{ curriculum.id }}">
+                    {% for generation in curriculum.visualise_envs.all %}
+                    <div class="accordion-item">
+                      <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" 
+                                data-bs-toggle="collapse" data-bs-target="#gen-{{ generation.id }}">
+                          Generation {{ generation.generation }}
+                          <small class="text-muted ms-3">({{ generation.images.count }} images)</small>
+                          
+                          <button type="button"
+        class="btn btn-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#exampleModal"
+        data-gen="{{ generation.generation }}"
+        data-diff="{{ curriculum.difficulty }}"
+        data-best="{{ generation.GeneratedEnv.first.maxPPO }}"
+        data-avg="{{ generation.GeneratedEnv.first.avgPPO }}">
+  Show PPO Stats
+</button>
+                        </button>
+                      </h2>
+                      <!-- Button trigger modal -->
+                      
+
+
+                      
+                      <!-- image iteration -->
+                      <div id="gen-{{ generation.id }}" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                          <div class="env-grid">
+                            {% for img in generation.images.all %}
+                            <div class="env-card">
+                              {# Use loading="lazy" to prevent browser lag on large sets #}
+                              <img src="{% static img.image_path %}" 
+                                   alt="Env {{ generation.generation }}" 
+                                   loading="lazy">
+                            </div>
+                            {% empty %}
+                            <p class="text-muted italic">No images available for this generation.</p>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-3 text-muted">No generations recorded.</div>
+                    {% endfor %}
+                  </div>
+
+                </div>
+              </div>
+            </div>
+            {% empty %}
+            <p class="p-3">No curriculum data available.</p>
+            {% endfor %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">No experiments have been found in the database.</div>
+    {% endfor %}
+  </div>
+</div>
+<!-- Modal -->
+                      <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                          <div class="modal-content">
+                            <div class="modal-header">
+                              <h1 class="modal-title fs-5" id="exampleModalLabel">PPO Stats</h1>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                              <p><strong>Generation:</strong> <span id="modal-gen"></span></p>
+<p><strong>Difficulty:</strong> <span id="modal-diff"></span></p>
+<p><strong>Best Travel Ratio:</strong> <span id="modal-best"></span></p>
+<p><strong>Average Travel Ratio:</strong> <span id="modal-avg"></span></p>
+
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              <button type="button" class="btn btn-primary">Save changes</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <script>
+var exampleModal = document.getElementById('exampleModal')
+
+exampleModal.addEventListener('show.bs.modal', function (event) {
+
+  var button = event.relatedTarget
+
+  var gen  = button.getAttribute('data-gen')
+  var diff = button.getAttribute('data-diff')
+  var best = button.getAttribute('data-best')
+  var avg  = button.getAttribute('data-avg')
+
+  document.getElementById('modal-gen').innerText  = gen
+  document.getElementById('modal-diff').innerText = diff
+  document.getElementById('modal-best').innerText = best
+  document.getElementById('modal-avg').innerText  = avg
+
+})
+</script>
+
+{% endblock %}

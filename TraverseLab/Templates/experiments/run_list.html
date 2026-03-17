@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+<h1>
+{% block title %}Runs{% endblock %}
+</h1>
+
+{% block start %}
+<h1>Runs</h1>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, 250px); gap: 20px;">
+  {% for run in runs %}
+    <div style="border: 1px solid #ccc; padding: 10px;">
+      <a href="{% url 'experiments:run_detail' run.id %}">
+        <h4>Run {{ run.id|slice:":8" }}</h4>
+      </a>
+
+      <p>Status: {{ run.status }}</p>
+      <p>Seed: {{ run.seed }}</p>
+
+      {% if run.runmetricssummary %}
+        <p>Final reward: {{ run.runmetricssummary.final_mean_reward|floatformat:2 }}</p>
+      {% endif %}
+
+      {% if run.artifact_set.first %}
+        <img
+          src="{{ run.artifact_set.first.path }}"
+          style="width: 100%;"
+        />
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+<script>
+setInterval(() => {
+  fetch("{% url 'experiments:job_status' run.id %}")
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === "finished") {
+        location.reload();  // or load results
+      }
+    });
+}, 3000); // every 3s
+</script>
+

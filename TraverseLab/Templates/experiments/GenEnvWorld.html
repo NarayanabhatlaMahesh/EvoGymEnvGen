@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Generate Env{% endblock %}
+{% block start %}
+
+<div class="container-auto">
+  <div class="row">
+    <h1>
+      <legend class="col-form-label" style="text-align: center;">World Parameters</legend>
+    </h1>
+  </div>
+
+  <div class="row">
+    <div class="alert alert-warning col-5 mx-auto" style="text-align: center;" role="alert">
+      Experiment is tracked through timestamp folders.
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <fieldset>
+        <label class="col-form-label">
+          World Width
+          <input class="form-control" type="number" name="WORLD_WIDTH" value="40" min="1">
+        </label>
+
+        <label class="col-form-label">
+          World Height
+          <input class="form-control" type="number" name="WORLD_HEIGHT" value="6" min="1">
+        </label>
+
+        <label class="col-form-label">
+          Ground Height
+          <input class="form-control" type="number" name="GROUND_HEIGHT" value="1" min="1">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Evolution Parameters</legend>
+
+        <label class="col-form-label">
+          Population Size
+          <input class="form-control" type="number" id="POPULATION_SIZE" name="POPULATION_SIZE" value="6" min="2">
+        </label>
+
+        <label class="col-form-label">
+          Elite Count (Fixed to 1/2 Pop)
+          <input class="form-control" type="number" id="ELITE_COUNT" name="ELITE_COUNT" value="3" readonly>
+        </label>
+
+        <label class="col-form-label">
+          Generations
+          <input class="form-control" type="number" id="GENERATIONS" name="GENERATIONS" value="3" min="1">
+        </label>
+
+        <label class="col-form-label">
+          Mutation Probability
+          <input class="form-control" type="number" name="MUTATION_PROB" value="0.5" step="0.01" min="0" max="1">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>RL / PPO Parameters</legend>
+        <label class="col-form-label">
+          Max Steps (Evaluation)
+          <input class="form-control" type="number" name="MAX_STEPS" value="40" min="1">
+        </label>
+        <label class="col-form-label">
+            Number of Environments
+            <input class="form-control" type="number" id="N_ENVS" name="N_ENVS" value="2" min="1">
+        </label>
+        <label class="col-form-label">
+            PPO n_steps
+            <input class="form-control" type="number" id="N_STEPS" name="N_STEPS" value="16" min="1">
+        </label>
+        <label class="col-form-label">
+            PPO Train Timesteps (per generation)
+            <input class="form-control" type="number" id="PPO_TRAIN_TIMESTEPS" name="PPO_TRAIN_TIMESTEPS" value="200" min="1">
+        </label>
+        <label class="col-form-label">
+            Total PPO Timesteps
+            <input class="form-control" type="number" id="TOTAL_TIMESTEPS_DISPLAY" disabled>
+        </label>
+        <input type="hidden" id="TOTAL_TIMESTEPS" name="TOTAL_TIMESTEPS">
+        <label class="col-form-label">
+            PPO Batch Size
+            <input class="form-control" type="number" id="BATCH_SIZE_DISPLAY" disabled>
+        </label>
+        <input type="hidden" id="BATCH_SIZE" name="BATCH_SIZE">
+      </fieldset>
+
+      <fieldset class="card col-8 m-4">
+        <div class="m-4">
+          <legend>Curriculum</legend>
+          <div class="card col-12">
+            <div class="row m-4">
+              <fieldset class="col">
+                <legend>Easy</legend>
+                <label class="col-form-label">Obj Count
+                  <input class="form-control" type="number" id="EASY_OBJECTS_COUNT" name="CURRICULUM_1_OBJECTS_COUNT" value="3">
+                </label>
+                <label class="col-form-label">Size
+                  <input class="form-control" type="number" id="EASY_OBJECT_SIZE" name="CURRICULUM_1_OBJECT_SIZE" value="1">
+                </label>
+              </fieldset>
+
+              <fieldset class="col">
+                <legend>Medium</legend>
+                <label class="col-form-label">Obj Count
+                  <input class="form-control" type="number" id="MEDIUM_OBJECTS_COUNT" name="CURRICULUM_2_OBJECTS_COUNT" value="5">
+                </label>
+                <label class="col-form-label">Size
+                  <input class="form-control" type="number" id="MEDIUM_OBJECT_SIZE" name="CURRICULUM_2_OBJECT_SIZE" value="2">
+                </label>
+              </fieldset>
+
+              <fieldset class="col">
+                <legend>Hard</legend>
+                <label class="col-form-label">Obj Count
+                  <input class="form-control" type="number" id="HARD_OBJECTS_COUNT" name="CURRICULUM_3_OBJECTS_COUNT" value="6">
+                </label>
+                <label class="col-form-label">Size
+                  <input class="form-control" type="number" id="HARD_OBJECT_SIZE" name="CURRICULUM_3_OBJECT_SIZE" value="3">
+                </label>
+              </fieldset>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn btn-primary mt-3">Run Experiment</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function updateEvolutionFields() {
+  const popSize = parseInt(document.getElementById("POPULATION_SIZE").value) || 0;
+  // Constraint: Elite Count is half of population
+  document.getElementById("ELITE_COUNT").value = Math.floor(popSize / 2);
+}
+
+function updateDerivedFields() {
+  const gens = parseInt(document.getElementById("GENERATIONS").value) || 0;
+  const ppoSteps = parseInt(document.getElementById("PPO_TRAIN_TIMESTEPS").value) || 0;
+  const nEnvs = parseInt(document.getElementById("N_ENVS").value) || 0;
+  const nSteps = parseInt(document.getElementById("N_STEPS").value) || 0;
+
+  const total = gens * ppoSteps;
+  const batch = nEnvs * nSteps;
+
+  document.getElementById("TOTAL_TIMESTEPS_DISPLAY").value = total;
+  document.getElementById("TOTAL_TIMESTEPS").value = total;
+  document.getElementById("BATCH_SIZE_DISPLAY").value = batch;
+  document.getElementById("BATCH_SIZE").value = batch;
+}
+
+// Listen for Population Size changes
+document.getElementById("POPULATION_SIZE").addEventListener("input", updateEvolutionFields);
+
+[ "GENERATIONS", "PPO_TRAIN_TIMESTEPS", "N_ENVS", "N_STEPS" ].forEach(id => {
+  document.getElementById(id).addEventListener("input", updateDerivedFields);
+});
+
+// Run on init
+updateEvolutionFields();
+updateDerivedFields();
+</script>
+{% endblock %}
