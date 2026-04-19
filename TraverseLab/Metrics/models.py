@@ -16,6 +16,27 @@ class RunMetricsSummary(models.Model):
     convergence_update = models.IntegerField(null=True)
     plateau_detected = models.BooleanField(default=False)
 
+class EnvironmentFitness(models.Model):
+    visualise_env = models.ForeignKey(VisualiseEnvs, on_delete=models.CASCADE)
+    
+    env_index = models.IntegerField()  # env_0, env_1, etc
+    json_path = models.CharField(max_length=500)
+
+    fitness_score = models.FloatField()  # std(scores)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class RobotPerformance(models.Model):
+    environment = models.ForeignKey(EnvironmentFitness, on_delete=models.CASCADE)
+
+    model_path = models.CharField(max_length=500)
+
+    start_x = models.FloatField()
+    max_x = models.FloatField()
+    distance_travelled = models.FloatField()
+    normalized_score = models.FloatField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class RunMetricsTimeSeries(models.Model):
     run = models.ForeignKey(TimestampEnvGenerated, on_delete=models.CASCADE)

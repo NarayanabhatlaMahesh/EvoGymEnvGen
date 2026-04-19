@@ -1,11 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 
-from Experiments.models import Run
+from Experiments.models import Run, TimestampEnvGenerated
 from Metrics.models import RunMetricsSummary
 from Artifacts.models import Artifact
 
 from celery import shared_task
+from django.utils import timezone
 
 from ..Utils.Evolve import Evolve
 
@@ -37,7 +38,6 @@ class Config:
         # -------------------------------
 
         self.USE_PPO = True
-
         self.MAX_STEPS = 1000
         self.PPO_TRAIN_TIMESTEPS = 200
 
@@ -50,7 +50,7 @@ class Config:
         self.MAX_STEPS_FOR_GIF = 100
 
         # -------------------------------
-        # WORLD (updated later)
+        # WORLD (overridden from UI)
         # -------------------------------
 
         self.WORLD_WIDTH = 40
@@ -176,10 +176,22 @@ def generate_environments(self, params):
         # ------------------------------------------------
 
         cfg = Config()
-        cfg.WORLD_WIDTH = WORLD_WIDTH   # override with UI value
+        cfg.WORLD_WIDTH = WORLD_WIDTH
 
         # ------------------------------------------------
-        # CURRICULUM
+        # SINGLE TIMESTAMP (SHARED)
+        # ------------------------------------------------
+
+        timestmp = timezone.now()
+
+        timestamp_obj = TimestampEnvGenerated.objects.create(
+            timestamp=timestmp
+        )
+
+        timestamp_str = timestmp.strftime("%Y%m%d_%H%M%S")
+
+        # ------------------------------------------------
+        # DYNAMIC CURRICULUM (FROM USER)
         # ------------------------------------------------
 
         curriculum = {
@@ -198,7 +210,7 @@ def generate_environments(self, params):
         }
 
         # ------------------------------------------------
-        # RUN CURRICULUM
+        # RUN CURRICULUM LOOP
         # ------------------------------------------------
 
         for difficulty, cur in curriculum.items():
@@ -212,6 +224,7 @@ def generate_environments(self, params):
             evo = Evolve(
                 cfg=cfg,
                 curriculum=cur,
+                difficulty=difficulty,
                 generations=GENERATIONS,
                 population_size=POPULATION_SIZE,
                 mutation_prob=MUTATION_PROB,
@@ -219,12 +232,14 @@ def generate_environments(self, params):
                 max_steps=cfg.MAX_STEPS,
                 world_width=WORLD_WIDTH,
                 world_height=WORLD_HEIGHT,
-                ground_height=GROUND_HEIGHT
+                ground_height=GROUND_HEIGHT,
+                timestamp_obj=timestamp_obj,
+                timestamp_str=timestamp_str
             )
 
-            evo.run_ga()
+            evo.run_evolution()
 
-        print("\nEvolution Finished")
+        print("\n🎉 Evolution Finished")
 
         return True
 
